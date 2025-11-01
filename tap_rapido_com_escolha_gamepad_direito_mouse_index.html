@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tap Rápido com Escolha — NEXUS</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121933;
+      --accent: #6ee7ff;
+      --ok: #34d399;
+      --err: #f87171;
+      --text: #e6ecff;
+      --muted: #9fb3ff88;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; background: radial-gradient(1200px 800px at 70% 10%, #141b3f, var(--bg));
+      color: var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial;
+      display: grid; place-items: center;
+    }
+    .shell { width: min(1200px, 95vw); }
+    header {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      margin: 16px 0 8px; padding: 10px 14px; background: #0d1430a6; border: 1px solid #1c2660; border-radius: 14px;
+    }
+    header .brand { font-weight: 700; letter-spacing: .6px; }
+    header .hint { color: var(--muted); font-size: 12px; }
+    .panel {
+      background: linear-gradient(180deg, #0f1736, #0b1230); border: 1px solid #1c2660; border-radius: 18px; padding: 14px;
+      box-shadow: 0 10px 24px #00000066, inset 0 1px 0 #2a3a8a55; 
+    }
+    .row { display: flex; gap: 14px; align-items: stretch; }
+    .col { flex: 1; }
+
+    /* Left: UI */
+    .ui {
+      display: grid; gap: 12px; grid-template-columns: 1fr; 
+    }
+    .card { background: #0c1433; border: 1px solid #1c2660; border-radius: 14px; padding: 12px 14px; }
+    .card h3 { margin: 0 0 8px; font-size: 16px; letter-spacing: .3px; }
+    .levels { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); }
+    .btn {
+      appearance: none; border: 1px solid #2b3b86; background: #101a42; color: var(--text); padding: 10px 12px; border-radius: 12px;
+      cursor: pointer; font-weight: 600; transition: .15s transform, .15s background, .15s border-color; text-align: center;
+    }
+    .btn:hover { transform: translateY(-1px); border-color: #3e52c4; }
+    .btn:active { transform: translateY(0); }
+    .btn.primary { background: linear-gradient(180deg, #17306b, #102559); border-color: #4b68de; }
+    .btn.ghost { background: #0e1641; }
+    .btn.full { width: 100%; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .hud-line { display: flex; justify-content: space-between; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; color: #cfe1ffcc; }
+    .kbd { border: 1px solid #2a3b88; background: #0e1746; padding: 2px 6px; border-radius: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+
+    /* Canvas wrapper */
+    .stage-wrap { position: relative; border-radius: 16px; overflow: hidden; border: 1px solid #1c2660; }
+    canvas { display: block; width: 100%; height: 600px; background: radial-gradient(900px 600px at 50% 50%, #0e1640, #09102b); }
+
+    /* Footer */
+    footer { margin: 10px 0 0; display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
+    .link { color: var(--accent); text-decoration: none; }
+
+    /* Toast */
+    .toast { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: #0b122e; border: 1px solid #2540a9; padding: 8px 10px; border-radius: 10px; font-size: 13px; color: #cfe1ff; display: none; }
+
+    /* Result modal */
+    .modal {
+      position: absolute; inset: 0; background: #0a0f26cc; display: none; align-items: center; justify-content: center;
+      backdrop-filter: blur(2px);
+    }
+    .modal .box {
+      width: min(560px, 92vw); background: #0c1433; border: 1px solid #2a3b88; border-radius: 16px; padding: 16px;
+    }
+    .table { width: 100%; border-collapse: collapse; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+    .table th, .table td { border-bottom: 1px solid #24367e; padding: 6px 8px; text-align: left; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="panel">
+      <div class="brand">NEXUS • Tap Rápido com Escolha</div>
+      <div class="hint">Analógico direito <span class="kbd">→</span> mover mira • <span class="kbd">A</span> confirmar • Mouse: mover e clicar</div>
+    </header>
+
+    <div class="row">
+      <div class="col ui">
+        <div class="card">
+          <h3>Escolha a dificuldade</h3>
+          <div class="levels">
+            <button class="btn primary" data-level="easy">Fácil</button>
+            <button class="btn primary" data-level="medium">Médio</button>
+            <button class="btn primary" data-level="hard">Difícil</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Status</h3>
+          <div class="grid2">
+            <div class="hud-line"><span>Rodada</span><strong id="hudRound">-</strong></div>
+            <div class="hud-line"><span>Tempo restante</span><strong id="hudTime">-</strong></div>
+            <div class="hud-line"><span>Acertos</span><strong id="hudHits">-</strong></div>
+            <div class="hud-line"><span>Erros</span><strong id="hudMiss">-</strong></div>
+            <div class="hud-line"><span>Média (ms)</span><strong id="hudAvg">-</strong></div>
+            <div class="hud-line"><span>Modo de entrada</span><strong id="hudInput">-</strong></div>
+          </div>
+          <div style="margin-top:8px; font-size:12px; color:#cfe1ff99">Dica: conecte o controle e aperte qualquer botão para habilitar a Gamepad API.</div>
+        </div>
+
+        <div class="card">
+          <h3>Controles</h3>
+          <div style="font-size:14px; color:#d8e4ffcc">
+            <div>• <strong>Controle</strong> — Analógico direito move a mira; botão <span class="kbd">A</span> confirma; <span class="kbd">B</span> cancela/volta.</div>
+            <div>• <strong>Mouse</strong> — Mova o cursor e <strong>clique</strong> no alvo.</div>
+          </div>
+          <div style="margin-top:8px; display:flex; gap:8px">
+            <button id="btnStart" class="btn ghost">Iniciar (última dificuldade)</button>
+            <button id="btnStop" class="btn ghost">Parar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="col panel stage-wrap">
+        <canvas id="stage" width="1200" height="600"></canvas>
+        <div id="toast" class="toast"></div>
+        <div id="modal" class="modal">
+          <div class="box">
+            <h2 style="margin:6px 0 10px">Resultado</h2>
+            <div id="summary" style="margin-bottom:8px; color:#cfe1ff"></div>
+            <table class="table">
+              <thead><tr><th>#</th><th>Resultado</th><th>Tempo (ms)</th></tr></thead>
+              <tbody id="rows"></tbody>
+            </table>
+            <div style="display:flex; gap:8px; margin-top:12px; justify-content:flex-end">
+              <button id="btnReplay" class="btn primary">Jogar novamente</button>
+              <button id="btnClose" class="btn ghost">Fechar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <div>Feito para treinos do <strong>Método NEXUS</strong></div>
+      <div>Gamepad + Mouse • HTML/Canvas • Sem libs</div>
+    </footer>
+  </div>
+
+  <script>
+  // ======= Configs de dificuldade =======
+  const DIFFS = {
+    easy:   { label: 'Fácil',  circles: 3, rounds: 10, limitMs: Infinity, types: ['color'] },
+    medium: { label: 'Médio',  circles: 4, rounds: 12, limitMs: 2000,    types: ['color','pos'] },
+    hard:   { label: 'Difícil',circles: 5, rounds: 14, limitMs: 1500,    types: ['color','pos','stroop'] },
+  };
+
+  // ======= Estado global =======
+  const state = {
+    running: false,
+    levelKey: 'easy',
+    round: 0,
+    results: [], // {hit:boolean, rt:number|null}
+    hits: 0,
+    miss: 0,
+    avg: 0,
+    startedAt: 0,
+    roundDeadline: null,
+    // Alvos/Instrucao
+    targets: [], // {x,y,r,color}
+    correctIdx: -1,
+    instruction: '',
+    instructionColor: '#ffffff', // para stroop
+    // Input
+    inputMode: 'mouse', // 'mouse' | 'gamepad'
+    cursor: { x: 600, y: 300, r: 10 },
+    // gamepad
+    gpIndex: null,
+    btnAWasDown: false,
+  };
+
+  // ======= Util =======
+  const rand = (a,b) => Math.random()*(b-a)+a;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const choice = arr => arr[(Math.random()*arr.length)|0];
+  const COLORS = [
+    ['Vermelho',   '#ef4444'],
+    ['Verde',      '#22c55e'],
+    ['Azul',       '#3b82f6'],
+    ['Amarelo',    '#eab308'],
+    ['Roxo',       '#8b5cf6'],
+  ];
+  const DIRS = ['esquerda','direita','acima','abaixo'];
+
+  // ======= DOM =======
+  const $ = sel => document.querySelector(sel);
+  const hud = {
+    round: $('#hudRound'), time: $('#hudTime'), hits: $('#hudHits'), miss: $('#hudMiss'), avg: $('#hudAvg'), input: $('#hudInput')
+  };
+  const toastEl = $('#toast');
+  const modalEl = $('#modal');
+
+  // ======= Canvas =======
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+  function resizeCanvasToCSS() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.floor(rect.width * dpr);
+    canvas.height = Math.floor(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  resizeCanvasToCSS();
+  addEventListener('resize', resizeCanvasToCSS);
+
+  // ======= UI: Botões =======
+  document.querySelectorAll('[data-level]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.levelKey = btn.dataset.level;
+      startGame();
+    });
+  });
+  $('#btnStart').addEventListener('click', () => startGame());
+  $('#btnStop').addEventListener('click', stopGame);
+  $('#btnReplay').addEventListener('click', () => { modal(false); startGame(); });
+  $('#btnClose').addEventListener('click', () => modal(false));
+
+  function toast(msg, ms=1200) {
+    toastEl.textContent = msg; toastEl.style.display = 'block';
+    clearTimeout(toastEl._t);
+    toastEl._t = setTimeout(()=> toastEl.style.display='none', ms);
+  }
+  function modal(show=true) { modalEl.style.display = show ? 'flex':'none'; }
+
+  // ======= Mouse input =======
+  canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    state.cursor.x = clamp(e.clientX - rect.left, 0, rect.width);
+    state.cursor.y = clamp(e.clientY - rect.top, 0, rect.height);
+    state.inputMode = 'mouse';
+  });
+  canvas.addEventListener('mousedown', () => {
+    if (!state.running) return;
+    state.inputMode = 'mouse';
+    confirmSelection();
+  });
+
+  // ======= Gamepad detection =======
+  window.addEventListener('gamepadconnected', (e) => {
+    state.gpIndex = e.gamepad.index;
+    state.inputMode = 'gamepad';
+    toast('Controle conectado');
+  });
+  window.addEventListener('gamepaddisconnected', (e) => {
+    if (state.gpIndex === e.gamepad.index) {
+      state.gpIndex = null; state.inputMode = 'mouse';
+      toast('Controle desconectado');
+    }
+  });
+
+  function pollGamepad() {
+    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    const gp = pads && pads[state.gpIndex] ? pads[state.gpIndex] : null;
+    if (!gp) return null;
+    return gp;
+  }
+
+  function getRightStick(gp) {
+    // Padrão: eixos 2 (X) e 3 (Y). Fallback para 0/1 se necessário.
+    let axX = gp.axes[2] ?? gp.axes[0] ?? 0;
+    let axY = gp.axes[3] ?? gp.axes[1] ?? 0;
+    return [axX, axY];
+  }
+
+  function updateFromGamepad(dt) {
+    const gp = pollGamepad();
+    if (!gp) return;
+    const [rx, ry] = getRightStick(gp);
+    const dead = 0.15; // zona morta
+    const scale = 500; // px por segundo na inclinação máxima
+
+    let vx = Math.abs(rx) > dead ? rx : 0;
+    let vy = Math.abs(ry) > dead ? ry : 0;
+
+    if (vx || vy) state.inputMode = 'gamepad';
+
+    const rect = canvas.getBoundingClientRect();
+    state.cursor.x = clamp(state.cursor.x + vx * scale * dt, 0, rect.width);
+    state.cursor.y = clamp(state.cursor.y + vy * scale * dt, 0, rect.height);
+
+    // Botão A = 0 no mapeamento padrão
+    const aDown = !!(gp.buttons[0] && gp.buttons[0].pressed);
+    if (aDown && !state.btnAWasDown) {
+      confirmSelection();
+    }
+    state.btnAWasDown = aDown;
+  }
+
+  // ======= Núcleo do jogo =======
+  function startGame() {
+    const cfg = DIFFS[state.levelKey];
+    state.running = true;
+    state.round = 0;
+    state.results = [];
+    state.hits = 0; state.miss = 0; state.avg = 0; state.roundDeadline = null;
+    modal(false);
+    toast(`Iniciando • ${cfg.label}`);
+    nextRound();
+  }
+
+  function stopGame() {
+    if (!state.running) return;
+    state.running = false;
+    toast('Parado');
+  }
+
+  function nextRound() {
+    const cfg = DIFFS[state.levelKey];
+    state.round++;
+    if (state.round > cfg.rounds) { return finish(); }
+
+    // Criar alvos
+    state.targets = makeTargets(cfg.circles);
+
+    // Definir instrução
+    const type = choice(cfg.types);
+    const { text, correctIdx, textColor } = makeInstruction(type, state.targets);
+    state.instruction = text; state.correctIdx = correctIdx; state.instructionColor = textColor || '#ffffff';
+
+    // Tempo
+    state.startedAt = performance.now();
+    state.roundDeadline = isFinite(cfg.limitMs) ? state.startedAt + cfg.limitMs : null;
+  }
+
+  function finish() {
+    state.running = false;
+    const total = state.results.length;
+    const hits = state.results.filter(r=>r.hit).length;
+    const rts = state.results.filter(r=>r.hit).map(r=>r.rt);
+    const avg = rts.length ? Math.round(rts.reduce((a,b)=>a+b,0)/rts.length) : 0;
+
+    // Resumo
+    const acc = total ? Math.round(100*hits/total) : 0;
+    $('#summary').innerHTML = `Rodadas: <strong>${total}</strong> • Acertos: <strong>${hits}</strong> • Precisão: <strong>${acc}%</strong> • Média: <strong>${avg} ms</strong>`;
+
+    // Linhas
+    const tbody = $('#rows');
+    tbody.innerHTML = '';
+    state.results.forEach((r,i)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${i+1}</td><td style="color:${r.hit? 'var(--ok)': 'var(--err)'}">${r.hit? 'Acerto' : 'Erro'}</td><td>${r.rt??'-'}</td>`;
+      tbody.appendChild(tr);
+    });
+    modal(true);
+  }
+
+  function makeTargets(n) {
+    const rect = canvas.getBoundingClientRect();
+    const cx = rect.width/2, cy = rect.height/2;
+    const radius = Math.min(rect.width, rect.height)*0.34;
+    const baseR = Math.min(rect.width, rect.height)*0.045; // raio dos círculos
+    const arr = [];
+
+    for (let i=0;i<n;i++) {
+      const angle = (i/n) * Math.PI*2 + rand(-0.12, 0.12);
+      const r = baseR * rand(0.9, 1.1);
+      const x = cx + Math.cos(angle) * radius;
+      const y = cy + Math.sin(angle) * radius;
+      const [name, col] = COLORS[i % COLORS.length];
+      arr.push({ x, y, r, color: col, name });
+    }
+    return arr;
+  }
+
+  function makeInstruction(type, targets) {
+    if (type === 'color') {
+      const idx = (Math.random() * targets.length) | 0;
+      const name = targets[idx].name;
+      return { text: `Toque no <strong>${name}</strong>`, correctIdx: idx };
+    }
+    if (type === 'pos') {
+      // baseia-se no quadrante em relação ao centro
+      const rect = canvas.getBoundingClientRect();
+      const cx = rect.width/2, cy = rect.height/2;
+      // escolher uma direção e depois o alvo mais próximo daquela direção
+      const dir = choice(DIRS);
+      let bestIdx = 0, bestScore = -Infinity;
+      targets.forEach((t, i) => {
+        const dx = t.x - cx, dy = t.y - cy;
+        const score = (
+          dir==='esquerda' ? -dx :
+          dir==='direita'  ?  dx :
+          dir==='acima'    ? -dy :
+          /* abaixo */         dy
+        );
+        if (score > bestScore) { bestScore = score; bestIdx = i; }
+      });
+      return { text: `Toque no círculo da <strong>${dir}</strong>`, correctIdx: bestIdx };
+    }
+    if (type === 'stroop') {
+      // Palavra (nome de cor) com uma cor de texto potencialmente diferente
+      const word = choice(COLORS); // [name, color]
+      const ink = choice(COLORS);
+      // 50% instrução sobre a COR do texto; 50% sobre a PALAVRA
+      if (Math.random() < 0.5) {
+        const idx = targets.findIndex(t => t.color === ink[1]);
+        return { text: `Atenção: clique na <u>cor do texto</u> → <span style="color:${ink[1]}; font-weight:700">${word[0]}</span>`, correctIdx: idx, textColor: ink[1] };
+      } else {
+        const idx = targets.findIndex(t => t.name === word[0]);
+        return { text: `Atenção: clique na <u>palavra</u> → <span style="color:${ink[1]}; font-weight:700">${word[0]}</span>`, correctIdx: idx, textColor: ink[1] };
+      }
+    }
+    // fallback
+    const idx = 0;
+    return { text: `Toque no <strong>${targets[idx].name}</strong>`, correctIdx: idx };
+  }
+
+  function confirmSelection() {
+    if (!state.running) return;
+    const idx = circleUnderCursor();
+    const now = performance.now();
+    const rt = Math.round(now - state.startedAt);
+
+    // time-out
+    const timedOut = state.roundDeadline && now > state.roundDeadline;
+
+    let hit = false;
+    if (!timedOut && idx !== -1) {
+      hit = (idx === state.correctIdx);
+    }
+
+    state.results.push({ hit, rt: hit ? rt : rt });
+    if (hit) state.hits++; else state.miss++;
+
+    // média
+    const hitsRT = state.results.filter(r=>r.hit).map(r=>r.rt);
+    state.avg = hitsRT.length ? Math.round(hitsRT.reduce((a,b)=>a+b,0)/hitsRT.length) : 0;
+
+    // feedback rápido
+    flashCircle(idx !== -1 ? state.targets[idx] : null, hit);
+
+    nextRound();
+  }
+
+  function circleUnderCursor() {
+    const rect = canvas.getBoundingClientRect();
+    const x = state.cursor.x, y = state.cursor.y;
+    for (let i=0;i<state.targets.length;i++) {
+      const t = state.targets[i];
+      const dx = x - t.x, dy = y - t.y;
+      if (dx*dx + dy*dy <= t.r*t.r) return i;
+    }
+    return -1;
+  }
+
+  // Visual feedback flash
+  let flash = { t: 0, x:0, y:0, color:'#fff', kind:'ok' };
+  function flashCircle(target, ok) {
+    if (!target) return;
+    flash.t = 0.25; flash.x = target.x; flash.y = target.y; flash.color = ok? 'var(--ok)' : 'var(--err)'; flash.kind = ok? 'ok':'err';
+  }
+
+  // ======= Loop =======
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min((now - last)/1000, 0.05); last = now;
+
+    if (state.gpIndex !== null) updateFromGamepad(dt);
+
+    draw();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  function draw() {
+    const rect = canvas.getBoundingClientRect();
+    ctx.clearRect(0,0,rect.width,rect.height);
+
+    // background grid subtle
+    drawGrid(rect.width, rect.height);
+
+    // instrução
+    drawInstruction();
+
+    // alvos
+    state.targets.forEach((t,i)=>{
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, t.r, 0, Math.PI*2);
+      const grd = ctx.createRadialGradient(t.x-6, t.y-6, 6, t.x, t.y, t.r);
+      grd.addColorStop(0, lighten(t.color, 0.25));
+      grd.addColorStop(1, t.color);
+      ctx.fillStyle = grd;
+      ctx.fill();
+
+      // anel
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#ffffff22';
+      ctx.stroke();
+
+      // marcador de índice (discreto)
+      // ctx.fillStyle = '#ffffff66'; ctx.font = '12px ui-monospace'; ctx.fillText(i+1, t.x-3, t.y+4);
+    });
+
+    // tempo limite
+    const cfg = DIFFS[state.levelKey];
+    if (state.running && isFinite(cfg.limitMs) && state.roundDeadline) {
+      const remain = Math.max(0, state.roundDeadline - performance.now());
+      hud.time.textContent = `${Math.ceil(remain/100)/10}s`;
+      if (remain <= 0) {
+        // conta como erro e vai para próxima
+        state.results.push({ hit:false, rt: null });
+        state.miss++;
+        nextRound();
+      }
+    } else {
+      hud.time.textContent = '—';
+    }
+
+    // cursor
+    drawCursor();
+
+    // flash feedback
+    if (flash.t > 0) {
+      const a = flash.t / 0.25;
+      ctx.beginPath();
+      ctx.arc(flash.x, flash.y, 26*(1-a)+40*(a), 0, Math.PI*2);
+      ctx.lineWidth = 4*(a);
+      ctx.strokeStyle = flash.color + (a>0?'' : '');
+      ctx.globalAlpha = a;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      flash.t -= 1/60;
+    }
+
+    // HUD numérico
+    hud.round.textContent = state.running ? `${state.round}/${DIFFS[state.levelKey].rounds}` : '—';
+    hud.hits.textContent  = state.hits;
+    hud.miss.textContent  = state.miss;
+    hud.avg.textContent   = state.avg || '—';
+    hud.input.textContent = state.inputMode;
+  }
+
+  function drawInstruction() {
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width;
+    const y = 46;
+
+    ctx.textAlign = 'center';
+    ctx.font = '700 18px system-ui, Segoe UI, Roboto';
+    ctx.fillStyle = '#cfe1ff';
+
+    let html = state.instruction || 'Escolha uma dificuldade para começar';
+    // desenhar caixa translúcida
+    ctx.fillStyle = '#0b122e80';
+    ctx.strokeStyle = '#2540a980';
+    ctx.lineWidth = 1.5;
+    const padX = 16, padY = 8;
+    const text = htmlToPlain(html);
+    const m = ctx.measureText(text);
+    const boxW = Math.min(m.width + padX*2, w-20);
+    const boxH = 36 + padY*2;
+    const x = w/2 - boxW/2;
+
+    roundRect(ctx, x, y, boxW, boxH, 10);
+    ctx.fill(); ctx.stroke();
+
+    // texto principal
+    ctx.fillStyle = '#cfe1ff';
+    ctx.fillText(text, w/2, y + boxH/2 + 6);
+
+    // Para Stroop, desenhar segunda linha colorida
+    if (state.instruction.includes('Atenção:')) {
+      const second = getStroopWord(state.instruction);
+      if (second) {
+        ctx.font = '700 22px system-ui, Segoe UI, Roboto';
+        ctx.fillStyle = state.instructionColor || '#ffffff';
+        ctx.fillText(second, w/2, y + boxH + 26);
+      }
+    }
+  }
+
+  function getStroopWord(html) {
+    const m = html.match(/>([^<]+)<\/span>/);
+    return m ? m[1] : null;
+  }
+  function htmlToPlain(html) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html; return tmp.textContent || tmp.innerText || '';
+  }
+
+  function drawCursor() {
+    const rect = canvas.getBoundingClientRect();
+    const x = state.cursor.x, y = state.cursor.y, r = 10;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI*2);
+    ctx.fillStyle = '#ffffff';
+    ctx.globalAlpha = 0.85; ctx.fill(); ctx.globalAlpha = 1;
+
+    ctx.beginPath();
+    ctx.arc(x, y, r+6, 0, Math.PI*2);
+    ctx.strokeStyle = '#6ee7ffcc'; ctx.lineWidth = 2; ctx.stroke();
+
+    // highlight alvo sob mira
+    const idx = circleUnderCursor();
+    if (idx !== -1) {
+      const t = state.targets[idx];
+      ctx.beginPath(); ctx.arc(t.x, t.y, t.r+6, 0, Math.PI*2);
+      ctx.strokeStyle = '#ffffffaa'; ctx.lineWidth = 2; ctx.setLineDash([6,6]); ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+
+  function drawGrid(w,h) {
+    const step = 28;
+    ctx.save(); ctx.globalAlpha = 0.18; ctx.strokeStyle = '#203070'; ctx.lineWidth = 1;
+    for (let x=0; x<w; x+=step) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
+    for (let y=0; y<h; y+=step) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+    ctx.restore();
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.arcTo(x+w, y, x+w, y+h, r);
+    ctx.arcTo(x+w, y+h, x, y+h, r);
+    ctx.arcTo(x, y+h, x, y, r);
+    ctx.arcTo(x, y, x+w, y, r);
+    ctx.closePath();
+  }
+
+  function lighten(hex, amt) {
+    const c = parseInt(hex.slice(1), 16);
+    let r=(c>>16)&255, g=(c>>8)&255, b=c&255;
+    r = Math.min(255, Math.floor(r + (255-r)*amt));
+    g = Math.min(255, Math.floor(g + (255-g)*amt));
+    b = Math.min(255, Math.floor(b + (255-b)*amt));
+    return `#${(r<<16|g<<8|b).toString(16).padStart(6,'0')}`;
+  }
+
+  // Inicializar HUD
+  hud.round.textContent = '—'; hud.time.textContent = '—'; hud.hits.textContent = '—'; hud.miss.textContent = '—'; hud.avg.textContent = '—'; hud.input.textContent = '—';
+  </script>
+</body>
+</html>
